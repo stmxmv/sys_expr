@@ -23,44 +23,36 @@ int main(int argc, const char * argv[]) {
     sem_t *sem_queue, *sem_empty, *sem_full;
 
     // Create the semaphore
-    sem_queue = guard_sem_open(QUEUE_MUTEX_SEM, 0);
-    sem_empty = guard_sem_open(QUEUE_EMPTY_SEM, 0);
-    sem_full = guard_sem_open(QUEUE_FULL_SEM, 0);
+    UNIX_CHECK(sem_queue = sem_open(QUEUE_MUTEX_SEM, 0));
+    UNIX_CHECK(sem_empty = sem_open(QUEUE_EMPTY_SEM, 0));
+    UNIX_CHECK(sem_full = sem_open(QUEUE_FULL_SEM, 0));
+
+    sem_wrapper semQueueWrapper{sem_queue};
 
     key_t key;
 
     // Generate a unique key for the shared memory segment
-    if ((key = ftok(SHARED_MEM_KEY, 'R')) == -1) {
-        perror("ftok");
-        exit(1);
-    }
+    UNIX_CHECK((key = ftok(SHARED_MEM_KEY, SHARED_MEM_ID)));
 
     // Create the shared memory segment
-    if ((shmid = shmget(key, sizeof(struct s_shared_mem), IPC_CREAT | 0666)) == -1) {
-        perror("shmget");
-        exit(1);
-    }
+    UNIX_CHECK((shmid = shmget(key, sizeof(struct s_shared_mem), 0)));
 
     // Attach the shared memory segment to our data space
-    if ((shm = shmat(shmid, nullptr, 0)) == (char *) -1) {
-        perror("shmat");
-        exit(1);
-    }
+    UNIX_CHECK(shm = shmat(shmid, nullptr, 0));
 
     shared_mem = (struct s_shared_mem *) shm;
 
     pid_t pid;
 
-    pid = fork();
+    UNIX_CHECK(pid = fork());
 
 
     auto mainLoop = [=] {
         for (;;) {
-            sem_wait(sem_empty);
+            UNIX_CHECK(sem_wait(sem_full));
 
             {
-                sem_wrapper semWrapper{sem_queue};
-                std::scoped_lock lock(semWrapper);
+                std::scoped_lock lock(semQueueWrapper);
 
                 if (!shared_mem->running) {
                     break;
@@ -71,26 +63,26 @@ int main(int argc, const char * argv[]) {
                 shared_mem->line_read = (shared_mem->line_read + 1) % NUM_LINE;
             }
 
-            sem_post(sem_full);
+            UNIX_CHECK(sem_post(sem_empty));
         }
     };
 
-    if (pid < 0) {
-        perror("fork");
-        exit(1);
-    } else if (pid == 0) {
+    if (pid == 0) {
         // child
         mainLoop();
     } else {
         // parent
         mainLoop();
         // wait for child
-        waitpid(pid, NULL, 0);
+        waitpid(pid, nullptr, 0);
     }
 
-    sem_close(sem_queue);
-    sem_close(sem_empty);
-    sem_close(sem_full);
+    // unmap shared memory
+    UNIX_CHECK(shmdt(shm));
+
+    UNIX_CHECK(sem_close(sem_queue));
+    UNIX_CHECK(sem_close(sem_empty));
+    UNIX_CHECK(sem_close(sem_full));
 
 
     return 0;

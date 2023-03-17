@@ -14,10 +14,7 @@
 #include "typedef.h"
 
 
-
-
-
-int main(int argc, const char * argv[]) {
+int main(int argc, const char *argv[]) {
     int shmid;
     void *shm;
 
@@ -26,29 +23,22 @@ int main(int argc, const char * argv[]) {
     sem_t *sem_queue, *sem_empty, *sem_full;
 
     // Create the semaphore
-    sem_queue = guard_sem_open(QUEUE_MUTEX_SEM, O_CREAT, 0644, 1);
-    sem_empty = guard_sem_open(QUEUE_EMPTY_SEM, O_CREAT, 0644, 0);
-    sem_full = guard_sem_open(QUEUE_FULL_SEM, O_CREAT, 0644, NUM_LINE);
+    UNIX_CHECK(sem_queue = sem_open(QUEUE_MUTEX_SEM, O_CREAT, 0644, 1));
+    UNIX_CHECK(sem_empty = sem_open(QUEUE_EMPTY_SEM, O_CREAT, 0644, NUM_LINE));
+    UNIX_CHECK(sem_full = sem_open(QUEUE_FULL_SEM, O_CREAT, 0644, 0));
+
+    sem_wrapper semQueueWrapper{sem_queue};
 
     key_t key;
 
     // Generate a unique key for the shared memory segment
-    if ((key = ftok(SHARED_MEM_KEY, 'R')) == -1) {
-        perror("ftok");
-        exit(1);
-    }
+    UNIX_CHECK(key = ftok(SHARED_MEM_KEY, SHARED_MEM_ID));
 
     // Create the shared memory segment
-    if ((shmid = shmget(key, sizeof(struct s_shared_mem), IPC_CREAT | 0666)) == -1) {
-        perror("shmget");
-        exit(1);
-    }
+    UNIX_CHECK(shmid = shmget(key, sizeof(struct s_shared_mem), IPC_CREAT | 0666));
 
     // Attach the shared memory segment to our data space
-    if ((shm = shmat(shmid, nullptr, 0)) == (char *) -1) {
-        perror("shmat");
-        exit(1);
-    }
+    UNIX_CHECK((shm = shmat(shmid, nullptr, 0)));
 
     shared_mem = (struct s_shared_mem *) shm;
 
@@ -63,46 +53,46 @@ int main(int argc, const char * argv[]) {
         std::getline(std::cin, line);
 
         if (line == "quit") {
+
             {
-                sem_wrapper semWrapper{sem_queue};
-                std::scoped_lock lock(semWrapper);
+                std::scoped_lock lock(semQueueWrapper);
                 shared_mem->running = false;
             }
 
             for (int i = 0; i < NUM_LINE; ++i) {
-                sem_post(sem_empty);
+                UNIX_CHECK(sem_post(sem_full));
             }
 
             break;
         }
 
-        sem_wait(sem_full);
+        UNIX_CHECK(sem_wait(sem_empty));
 
 
         {
-            sem_wrapper semWrapper{sem_queue};
-            std::scoped_lock lock(semWrapper);
+            std::scoped_lock lock(semQueueWrapper);
             strncpy(shared_mem->buffer[shared_mem->line_write], line.c_str(), LINE_SIZE);
             shared_mem->line_write = (shared_mem->line_write + 1) % NUM_LINE;
         }
 
 
-        sem_post(sem_empty);
+        UNIX_CHECK(sem_post(sem_full));
     }
 
-    sem_close(sem_queue);
-    sem_close(sem_empty);
-    sem_close(sem_full);
+    // unmap shared memory
+    UNIX_CHECK(shmdt(shm));
 
-    sem_unlink(QUEUE_MUTEX_SEM);
-    sem_unlink(QUEUE_EMPTY_SEM);
-    sem_unlink(QUEUE_FULL_SEM);
+    // remove the shared memory segment
+    struct shmid_ds buf;
+    UNIX_CHECK(shmctl(shmid, IPC_RMID, &buf));
 
-    // release shared memory
-    if (shmdt(shm) == -1) {
-        perror("shmdt");
-        exit(1);
-    }
+    UNIX_CHECK(sem_close(sem_queue));
+    UNIX_CHECK(sem_close(sem_empty));
+    UNIX_CHECK(sem_close(sem_full));
+
+    UNIX_CHECK(sem_unlink(QUEUE_MUTEX_SEM));
+    UNIX_CHECK(sem_unlink(QUEUE_EMPTY_SEM));
+    UNIX_CHECK(sem_unlink(QUEUE_FULL_SEM));
 
     return 0;
 }
