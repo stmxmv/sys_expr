@@ -4,11 +4,13 @@
 #include <sys/types.h>
 #include <sys/ipc.h>
 #include <sys/shm.h>
+#include <sys/wait.h>
 #include <semaphore.h>
 #include <cstring>
 
 #include <string>
 #include <iostream>
+#include <mutex>
 
 #include "typedef.h"
 
