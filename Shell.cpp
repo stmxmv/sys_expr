@@ -11,7 +11,10 @@
 #include <iostream>
 #include <string>
 #include <sys/file.h>
+#include <sys/wait.h>
 #include <unistd.h>
+#include <signal.h>
+#include <cstring>
 
 namespace Ash {
 

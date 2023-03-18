@@ -15,6 +15,7 @@
 #include <unordered_map>
 #include <string_view>
 #include <vector>
+#include <memory>
 
 namespace Ash {
 
