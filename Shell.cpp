@@ -189,9 +189,7 @@ void Shell::run(int _argc, const char **_argv) {
 
                             execvp(argv[0], (char *const *) argv.data());
 
-                            // 代码健壮性: 如果子进程未被成功执行, 则报错
                             printf("%s: command error\n", argv[0]);
-                            // exit函数终止当前进程, 括号内参数为1时, 会像操作系统报告该进程因异常而终止
                             exit(1);
                         }
                         default: {
