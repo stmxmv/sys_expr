@@ -57,6 +57,7 @@ int main(int argc, const char * argv[]) {
                 std::scoped_lock lock(semQueueWrapper);
 
                 if (!shared_mem->running) {
+                    UNIX_CHECK(sem_post(sem_full));
                     break;
                 }
 

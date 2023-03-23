@@ -60,9 +60,7 @@ int main(int argc, const char *argv[]) {
                 shared_mem->running = false;
             }
 
-            for (int i = 0; i < NUM_LINE; ++i) {
-                UNIX_CHECK(sem_post(sem_full));
-            }
+            UNIX_CHECK(sem_post(sem_full));
 
             break;
         }
