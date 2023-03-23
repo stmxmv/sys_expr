@@ -177,7 +177,7 @@ void Shell::run(int _argc, const char **_argv) {
 
                                     std::string fileName(token.getRawData());
                                     int fd;
-                                    UNIX_GUARD(fd = open(fileName.c_str(), O_WRONLY|O_APPEND|O_CREAT|O_APPEND, 0600));
+                                    UNIX_GUARD(fd = open(fileName.c_str(), O_WRONLY|O_CREAT|O_TRUNC, 0600));
                                     UNIX_GUARD(dup2(fd, STDOUT_FILENO));
                                     UNIX_GUARD(close(fd));
                                 }
