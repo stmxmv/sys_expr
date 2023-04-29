@@ -8,7 +8,6 @@
 void printInfo(void) {
     char filename[256];
     pid_t pid = getpid();
-    // 检查/proc/pid/status文件中关于内存的情况
     sprintf(filename, "/proc/%d/status", pid);
     int fd = open(filename, O_RDONLY);
     if (fd == -1) {
@@ -21,7 +20,6 @@ void printInfo(void) {
     printf("process status %s\n", buf);
     close(fd);
 
-    // 检查/proc/pid/maps文件中关于内存的情况
     sprintf(filename, "/proc/%d/maps", pid);
     fd = open(filename, O_RDONLY);
     if (fd == -1) {

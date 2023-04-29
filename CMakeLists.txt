@@ -10,4 +10,4 @@ add_executable(test2 test2.c)
 
 add_executable(test3 test3.c)
 
-add_executable(tset4 test4.c)
+add_executable(test4 test4.c)
